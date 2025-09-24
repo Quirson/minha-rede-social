@@ -51,17 +51,21 @@ export const authAPI = {
 
 export const postsAPI = {
     getPosts: async (page = 1, pageSize = 10): Promise<StrapiCollectionResponse<PostRaw>> => {
+        // STRAPI V5 usa populate=* de forma diferente
         const params = {
-            populate: '*',
+            populate: '*', // Simplificado para Strapi v5
             sort: 'publishedDate:desc',
             'pagination[page]': page,
             'pagination[pageSize]': pageSize
         };
 
         console.log('Parâmetros sendo enviados para API (v5):', JSON.stringify(params, null, 2));
+
         const response = await api.get('/posts', { params });
+
         console.log('Resposta da API posts:', response.data);
 
+        // Debug específico para mídia no Strapi v5
         if (response.data.data && response.data.data.length > 0) {
             response.data.data.forEach((post: any, index: number) => {
                 console.log(`Post ${index + 1} (v5):`, {
@@ -84,14 +88,18 @@ export const postsAPI = {
     },
 
     likePost: async (postId: number) => {
+        // Primeiro, busca o post atual para pegar o número de likes
         const currentPost = await api.get(`/posts/${postId}`);
         const currentLikes = currentPost.data.data.attributes.likes || 0;
+
+        // Incrementa os likes
         const response = await api.put(`/posts/${postId}`, {
             data: { likes: currentLikes + 1 }
         });
         return response.data;
     },
 
+    // Função adicional para debug - REMOVA EM PRODUÇÃO
     getPost: async (id: number) => {
         const response = await api.get(`/posts/${id}?populate=*`);
         console.log('Post individual com populate=*:', response.data);
@@ -99,134 +107,19 @@ export const postsAPI = {
     }
 };
 
-// PRODUCTS API MELHORADA COM MAIS FUNCIONALIDADES
 export const productsAPI = {
-    getProducts: async (options: {
-        page?: number;
-        pageSize?: number;
-        category?: string;
-        searchTerm?: string;
-        sortBy?: string;
-        minPrice?: number;
-        maxPrice?: number;
-        inStock?: boolean;
-        featured?: boolean;
-    } = {}) => {
-        const {
-            page = 1,
-            pageSize = 12,
-            category,
-            searchTerm,
-            sortBy = 'newest',
-            minPrice,
-            maxPrice,
-            inStock,
-            featured
-        } = options;
-
-        let params: any = {
-            'pagination[page]': page,
-            'pagination[pageSize]': pageSize,
-            populate: '*'
-        };
-
-        // Filtros
-        let filters: any = {};
-
-        if (category && category !== 'all') {
-            filters.category = { $eq: category };
+    getProducts: async (page = 1, pageSize = 12, category?: string) => {
+        let url = `/products?pagination[page]=${page}&pagination[pageSize]=${pageSize}&populate=*`;
+        if (category) {
+            url += `&filters[category][$eq]=${category}`;
         }
-
-        if (searchTerm) {
-            filters.$or = [
-                { title: { $containsi: searchTerm } },
-                { description: { $containsi: searchTerm } },
-                { tags: { $containsi: searchTerm } }
-            ];
-        }
-
-        if (minPrice !== undefined) {
-            filters.price = { $gte: minPrice };
-        }
-
-        if (maxPrice !== undefined) {
-            filters.price = { ...filters.price, $lte: maxPrice };
-        }
-
-        if (inStock !== undefined) {
-            filters.isStock = { $eq: inStock };
-        }
-
-        if (featured) {
-            filters.isFeatured = { $eq: true };
-        }
-
-        if (Object.keys(filters).length > 0) {
-            Object.keys(filters).forEach(key => {
-                params[`filters[${key}]`] = filters[key];
-            });
-        }
-
-        // Ordenação
-        switch (sortBy) {
-            case 'price-low':
-                params.sort = 'price:asc';
-                break;
-            case 'price-high':
-                params.sort = 'price:desc';
-                break;
-            case 'rating':
-                params.sort = 'rating:desc';
-                break;
-            case 'popular':
-                params.sort = 'views:desc';
-                break;
-            case 'newest':
-            default:
-                params.sort = 'createdAt:desc';
-                break;
-        }
-
-        const response = await api.get('/products', { params });
+        const response = await api.get(url);
         return response.data;
     },
-
     getProduct: async (id: number) => {
         const response = await api.get(`/products/${id}?populate=*`);
         return response.data;
     },
-
-    getFeaturedProducts: async (limit = 8) => {
-        const response = await api.get(`/products?filters[isFeatured][$eq]=true&pagination[pageSize]=${limit}&populate=*`);
-        return response.data;
-    },
-
-    getCategories: async () => {
-        const response = await api.get('/product-categories?populate=*');
-        return response.data;
-    },
-
-    addToWishlist: async (productId: number) => {
-        const response = await api.post('/wishlists', {
-            data: { product: productId }
-        });
-        return response.data;
-    },
-
-    removeFromWishlist: async (productId: number) => {
-        const response = await api.delete(`/wishlists/${productId}`);
-        return response.data;
-    },
-
-    addToCart: async (productId: number, quantity = 1) => {
-        const response = await api.post('/cart-items', {
-            data: {
-                product: productId,
-                quantity
-            }
-        });
-        return response.data;
-    }
 };
 
 export const messagesAPI = {
