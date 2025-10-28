@@ -1,4 +1,4 @@
-// types.ts - TIPOS COMPLETOS
+// types.ts - TIPOS COMPLETOS E CORRETOS
 export interface MediaFormat {
     name: string;
     hash: string;
@@ -64,7 +64,7 @@ export interface User {
     profile?: Profile;
 }
 
-// ESTRUTURA RAW DO STRAPI (como vem da API)
+// ESTRUTURA RAW DO STRAPI
 export interface PostRaw {
     id: number;
     attributes: {
@@ -100,7 +100,7 @@ export interface Post {
     video?: { data?: Media };
 }
 
-// NOVOS TIPOS PARA PRODUCTS
+// TIPOS PARA PRODUCTS
 export interface ProductCategory {
     id: number;
     attributes: {
@@ -128,6 +128,7 @@ export interface ProductRaw {
         isFeatured: boolean;
         isOnSale: boolean;
         salePrice?: number;
+        discountPercentage?: number;
         tags?: string;
         brand?: string;
         model?: string;
@@ -139,14 +140,13 @@ export interface ProductRaw {
         createdAt: string;
         updatedAt: string;
         publishedAt: string;
-        category: { data?: ProductCategory };
+        category?: { data?: ProductCategory };
         seller: { data: { id: number; attributes: Profile } };
         images?: { data?: Media[] };
         gallery?: { data?: Media[] };
     };
 }
 
-// ESTRUTURA "ACHATADA" PARA O COMPONENTE
 export interface Product {
     id: number;
     title: string;
@@ -160,6 +160,7 @@ export interface Product {
     isFeatured: boolean;
     isOnSale: boolean;
     salePrice?: number;
+    discountPercentage?: number;
     tags?: string;
     brand?: string;
     model?: string;
@@ -175,8 +176,6 @@ export interface Product {
     seller: Profile;
     images?: { data?: Media[] };
     gallery?: { data?: Media[] };
-    // Campos computados
-    discountPercentage?: number;
     finalPrice: number;
 }
 
@@ -209,47 +208,13 @@ export interface AuthResponse {
     user: User;
 }
 
-// TIPOS PARA FILTROS E BUSCA
-export interface ProductFilters {
-    category?: string;
-    minPrice?: number;
-    maxPrice?: number;
-    rating?: number;
-    condition?: string;
-    inStock?: boolean;
-    onSale?: boolean;
-    featured?: boolean;
-    brand?: string;
-}
+// Função utilitária para transformar produtos
+export const transformProductRaw = (raw: any): Product => {
+    const attributes = raw.attributes || raw;
 
-export interface ProductSearchOptions {
-    page?: number;
-    pageSize?: number;
-    searchTerm?: string;
-    sortBy?: 'newest' | 'oldest' | 'price-low' | 'price-high' | 'rating' | 'popular' | 'name-asc' | 'name-desc';
-    filters?: ProductFilters;
-}
-
-// TIPOS PARA CARRINHO E WISHLIST
-export interface CartItem {
-    id: number;
-    product: Product;
-    quantity: number;
-    addedAt: string;
-}
-
-export interface WishlistItem {
-    id: number;
-    product: Product;
-    addedAt: string;
-}
-
-// UTILITÁRIO PARA CONVERTER DADOS RAW EM LIMPOS
-export const transformProductRaw = (raw: ProductRaw): Product => {
-    const { attributes } = raw;
     const discountPercentage = attributes.isOnSale && attributes.salePrice
         ? Math.round(((attributes.price - attributes.salePrice) / attributes.price) * 100)
-        : undefined;
+        : attributes.discountPercentage || 0;
 
     const finalPrice = attributes.isOnSale && attributes.salePrice
         ? attributes.salePrice
@@ -257,10 +222,39 @@ export const transformProductRaw = (raw: ProductRaw): Product => {
 
     return {
         id: raw.id,
-        ...attributes,
-        category: attributes.category?.data,
-        seller: attributes.seller.data.attributes,
+        title: attributes.title || '',
+        description: attributes.description || '',
+        price: attributes.price || 0,
+        currency: attributes.currency || 'BRL',
+        rating: attributes.rating || 0,
+        reviewCount: attributes.reviewCount || 0,
+        isStock: attributes.isStock ?? true,
+        stockQuantity: attributes.stockQuantity || 0,
+        isFeatured: attributes.isFeatured || false,
+        isOnSale: attributes.isOnSale || false,
+        salePrice: attributes.salePrice,
         discountPercentage,
+        tags: attributes.tags,
+        brand: attributes.brand,
+        model: attributes.model,
+        condition: attributes.condition || 'new',
+        shippingInfo: attributes.shippingInfo,
+        returnPolicy: attributes.returnPolicy,
+        views: attributes.views || 0,
+        likes: attributes.likes || 0,
+        createdAt: attributes.createdAt,
+        updatedAt: attributes.updatedAt,
+        publishedAt: attributes.publishedAt,
+        category: attributes.category?.data,
+        seller: attributes.seller?.data?.attributes || {
+            id: 0,
+            DisplayName: 'Vendedor',
+            isVerified: false,
+            createdAt: '',
+            updatedAt: ''
+        },
+        images: attributes.images,
+        gallery: attributes.gallery,
         finalPrice
     };
 };
