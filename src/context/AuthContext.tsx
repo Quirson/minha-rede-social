@@ -5,7 +5,7 @@ import { User, LoginCredentials, RegisterCredentials } from '@/types';
 interface AuthContextType {
     user: User | null;
     loading: boolean;
-    login: (credentials: LoginCredentials) => Promise<void>;
+    login: (credentials: { email: string; password: string }) => Promise<void>;
     sendVerificationCode: (email: string) => Promise<void>;
     verifyEmail: (email: string, code: string, userData: RegisterCredentials) => Promise<void>;
     logout: () => void;
@@ -25,22 +25,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             try {
                 const token = localStorage.getItem('token');
                 if (token) {
-                    const response = await fetch(`${API_URL}/users/me`, {
+                    console.log('🔐 Verificando token...', token.substring(0, 20) + '...');
+
+                    const response = await fetch(`${API_URL}/users/me?populate[profile][populate][avatar]=*`, {
                         headers: {
                             Authorization: `Bearer ${token}`,
                         },
                     });
+
+                    console.log('📡 Status da resposta:', response.status);
+
                     if (response.ok) {
                         const userData = await response.json();
+                        console.log('✅ Usuário carregado:', userData);
                         setUser(userData);
                     } else {
+                        console.log('❌ Token inválido, limpando...');
                         throw new Error('Token de autenticação inválido.');
                     }
                 }
             } catch (error) {
-                console.error('Verificação de autenticação falhou:', error);
+                console.error('💥 Erro na verificação:', error);
+                // LIMPAR TUDO para forçar novo login
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
+                setUser(null);
             } finally {
                 setLoading(false);
             }
@@ -80,21 +89,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const login = async (credentials: LoginCredentials) => {
+        console.log('🔐 Tentando login com:', credentials.email);
+
         const response = await fetch(`${API_URL}/auth/local`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ identifier: credentials.email, password: credentials.password }),
+            body: JSON.stringify({
+                identifier: credentials.email,
+                password: credentials.password
+            }),
         });
+
+        console.log('📡 Resposta do login:', response.status);
 
         if (!response.ok) {
             const error = await response.json();
+            console.error('❌ Erro no login:', error);
             throw new Error(error.error.message || 'Erro ao fazer login');
         }
 
-        const data = await response.json();
-        setUser(data.user);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        localStorage.setItem('token', data.jwt);
+        const authData = await response.json();
+        console.log('✅ Login bem-sucedido, token:', authData.jwt.substring(0, 20) + '...');
+
+        // 🚨 AQUI ESTÁ A CORREÇÃO - Buscar usuário COMPLETO com profile
+        const userResponse = await fetch(`${API_URL}/users/me?populate[profile][populate][avatar]=*`, {
+            headers: {
+                Authorization: `Bearer ${authData.jwt}`,
+            },
+        });
+
+        if (!userResponse.ok) {
+            throw new Error('Erro ao carregar dados do usuário');
+        }
+
+        const userWithProfile = await userResponse.json();
+
+        setUser(userWithProfile);
+        localStorage.setItem('user', JSON.stringify(userWithProfile));
+        localStorage.setItem('token', authData.jwt);
     };
 
     const logout = () => {
@@ -104,7 +136,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         window.location.href = '/login';
     };
 
-    const value: AuthContextType = {
+    const value: {
+        user: User | null;
+        loading: boolean;
+        login: (credentials: LoginCredentials) => Promise<void>;
+        sendVerificationCode: (email: string) => Promise<void>;
+        verifyEmail: (email: string, code: string, userData: RegisterCredentials) => Promise<void>;
+        logout: () => void;
+        isAuthenticated: boolean
+    } = {
         user,
         loading,
         login,

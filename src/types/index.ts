@@ -192,6 +192,7 @@ export interface StrapiCollectionResponse<T> {
 }
 
 export interface LoginCredentials {
+    email: any;
     identifier: string;
     password: string;
 }
