@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { ChatProvider } from "@/context/ChatContext"; // ← ADICIONAR ESTA LINHA
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,7 +20,9 @@ export default function RootLayout({
         <html lang="pt-br">
         <body className={inter.className}>
         <AuthProvider>
-            {children}
+            <ChatProvider> {/* ← ADICIONAR ESTE WRAPPER */}
+                {children}
+            </ChatProvider>
         </AuthProvider>
         </body>
         </html>
