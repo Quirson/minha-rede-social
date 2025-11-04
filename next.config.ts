@@ -1,3 +1,4 @@
+// next.config.ts
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -8,6 +9,15 @@ const nextConfig: NextConfig = {
   // FORÇA desabilitar TypeScript strict checking durante build
   typescript: {
     ignoreBuildErrors: true,
+  },
+  // *** IMPORTANTE: ADICIONAR O DOMÍNIO DO NGROK À LISTA DE IMAGES PERMITIDAS ***
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'prolabor-axel-supraorbital.ngrok-free.dev',
+      },
+    ],
   },
   // Desabilita telemetria
   experimental: {
@@ -23,3 +33,5 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+// OS COLEGAS DEVEM REINICIAR O NEXT.JS DEPOIS DE SALVAR ESTE FICHEIRO.

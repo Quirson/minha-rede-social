@@ -4,8 +4,15 @@ import React, { useState, useEffect, FC } from 'react';
 import { Heart, MoreHorizontal, MessageCircle, Share2, Send, MapPin, Bookmark, Smile } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { postsAPI, STRAPI_URL } from '@/lib/api';
-import { Post as PostType, PostRaw } from '@/types';
+import { Post as PostType } from '@/types';
 import Link from 'next/link';
+
+// --- HELPER FUNCTION ---
+const getMediaUrl = (url: string | undefined) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    return `${STRAPI_URL}${url}`;
+};
 
 // --- SKELETON COMPONENT ---
 const PostSkeleton: FC = () => (
@@ -41,12 +48,17 @@ const PostCard: FC<PostCardProps> = ({ post, onLike }) => {
         return null;
     }
 
-    const authorAvatar = author.avatar?.data?.attributes?.url
-        ? `${STRAPI_URL}${author.avatar.data.attributes.url}`
+    // CORREÇÃO: Avatar do autor com estrutura correta
+    const authorAvatar = author.avatar?.url
+        ? getMediaUrl(author.avatar.url)
         : `https://placehold.co/40x40/8B5CF6/FFFFFF?text=${author.DisplayName?.charAt(0) || '?'}`;
 
-    const videoUrl = video?.data?.attributes?.url ? `${STRAPI_URL}${video.data.attributes.url}` : null;
-    const postImages = images?.data?.map(img => `${STRAPI_URL}${img.attributes.url}`) || [];
+    // CORREÇÃO: Imagens e vídeos com estrutura correta
+    const videoUrl = video?.url ? getMediaUrl(video.url) : null;
+    // CORREÇÃO: Garantir que postImages seja sempre um array
+    const postImages = Array.isArray(images)
+        ? images.map(img => getMediaUrl(img.url)).filter(Boolean)
+        : [];
 
     const handleLike = () => {
         setIsLiked(!isLiked);
@@ -70,6 +82,9 @@ const PostCard: FC<PostCardProps> = ({ post, onLike }) => {
                                 src={authorAvatar}
                                 alt={author.DisplayName || 'Usuário'}
                                 className="w-12 h-12 rounded-full object-cover ring-2 ring-white shadow-lg group-hover/author:ring-purple-300 transition-all duration-300"
+                                onError={(e) => {
+                                    (e.target as HTMLImageElement).src = `https://placehold.co/40x40/8B5CF6/FFFFFF?text=${author.DisplayName?.charAt(0) || '?'}`;
+                                }}
                             />
                             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white shadow-sm"></div>
                         </div>
@@ -152,7 +167,7 @@ const PostCard: FC<PostCardProps> = ({ post, onLike }) => {
                                 } ${postImages.length === 1 ? 'aspect-video' : 'aspect-square'}`}
                             >
                                 <img
-                                    src={image}
+                                    src={image || 'https://placehold.co/400x300/E5E7EB/9CA3AF?text=Imagem'}
                                     alt={`Imagem ${index + 1} do post`}
                                     className="w-full h-full object-cover transition-transform duration-300 group-hover/image:scale-110"
                                     onError={(e) => {
@@ -220,7 +235,7 @@ const CreatePost: FC<{ onPostCreated: (newPost: PostType) => void }> = ({ onPost
     const { user } = useAuth();
 
     const userAvatar = user?.profile?.avatar?.url
-        ? `${STRAPI_URL}${user.profile.avatar.url}`
+        ? getMediaUrl(user.profile.avatar.url)
         : `https://placehold.co/40x40/8B5CF6/FFFFFF?text=${user?.profile?.DisplayName?.charAt(0) || 'U'}`;
 
     const handleSubmit = async () => {
@@ -231,7 +246,12 @@ const CreatePost: FC<{ onPostCreated: (newPost: PostType) => void }> = ({ onPost
             const postData = {
                 content: text,
                 author: user.profile.id,
-                publishedDate: new Date().toISOString()
+                publishedDate: new Date().toISOString(),
+                tags: 'geral',
+                location: 'Mozambique',
+                isPublic: true,
+                likes: 0,
+                shares: 0
             };
 
             const response = await postsAPI.createPost(postData);
@@ -263,6 +283,9 @@ const CreatePost: FC<{ onPostCreated: (newPost: PostType) => void }> = ({ onPost
                         src={userAvatar}
                         alt="Seu avatar"
                         className="w-12 h-12 rounded-full object-cover ring-2 ring-white shadow-lg"
+                        onError={(e) => {
+                            (e.target as HTMLImageElement).src = `https://placehold.co/40x40/8B5CF6/FFFFFF?text=${user?.profile?.DisplayName?.charAt(0) || 'U'}`;
+                        }}
                     />
                     <div className="flex-1">
                         <textarea
@@ -331,9 +354,11 @@ const CreatePost: FC<{ onPostCreated: (newPost: PostType) => void }> = ({ onPost
     );
 };
 
-// --- FUNÇÃO HELPER PARA TRANSFORMAR DADOS - STRAPI V5 ---
+// --- FUNÇÃO HELPER PARA TRANSFORMAR DADOS - CORRIGIDA ---
+// --- FUNÇÃO HELPER PARA TRANSFORMAR DADOS - CORRIGIDA ---
+// --- FUNÇÃO HELPER PARA TRANSFORMAR DADOS - CORRIGIDA ---
 const transformPostData = (rawPost: any): PostType | null => {
-    console.log('=== TRANSFORMANDO POST (STRAPI V5) ===');
+    console.log('=== TRANSFORMANDO POST (COM AUTOR POPULADO) ===');
     console.log('Raw post recebido:', rawPost);
 
     if (!rawPost || typeof rawPost !== 'object' || !rawPost.id) {
@@ -341,68 +366,77 @@ const transformPostData = (rawPost: any): PostType | null => {
         return null;
     }
 
-    const post = {
-        id: rawPost.id,
-        content: rawPost.content || '',
-        likes: parseInt(rawPost.likes) || 0,
-        shares: parseInt(rawPost.shares) || 0,
-        isPublic: rawPost.isPublic ?? true,
-        tags: rawPost.tags,
-        location: rawPost.location,
-        publishedDate: rawPost.publishedDate || rawPost.createdAt,
-        createdAt: rawPost.createdAt,
-        updatedAt: rawPost.updatedAt,
+    // CORREÇÃO: Estrutura correta para Strapi v5
+    const attributes = rawPost.attributes || rawPost;
 
-        author: rawPost.author || {
-            id: 0,
-            DisplayName: 'Usuário Desconhecido',
-            isVerified: false,
-            createdAt: '',
-            updatedAt: ''
-        },
+    // CORREÇÃO: Autor agora está populado!
+    const authorData = attributes.author?.data?.attributes || attributes.author;
 
-        images: rawPost.images ? {
-            data: rawPost.images.map((img: any) => ({
-                id: img.id,
-                attributes: {
-                    name: img.name,
-                    alternativeText: img.alternativeText,
-                    caption: img.caption,
-                    width: img.width,
-                    height: img.height,
-                    formats: img.formats,
-                    url: img.url,
-                    mime: img.mime,
-                    size: img.size,
-                    createdAt: img.createdAt,
-                    updatedAt: img.updatedAt
-                }
-            }))
-        } : undefined,
-
-        video: rawPost.video ? {
-            data: {
-                id: rawPost.video.id,
-                attributes: {
-                    name: rawPost.video.name,
-                    alternativeText: rawPost.video.alternativeText,
-                    url: rawPost.video.url,
-                    mime: rawPost.video.mime,
-                    size: rawPost.video.size,
-                    createdAt: rawPost.video.createdAt,
-                    updatedAt: rawPost.video.updatedAt
-                }
-            }
-        } : undefined
+    let author: { id: number; DisplayName: string; isVerified: boolean; createdAt: string; updatedAt: string } = {
+        id: 0,
+        DisplayName: 'Usuário Desconhecido',
+        isVerified: false,
+        createdAt: '',
+        updatedAt: ''
     };
 
-    console.log('✅ Post transformado (v5):', {
+    if (authorData) {
+        author = {
+            id: attributes.author?.data?.id || authorData.id,
+            DisplayName: authorData.DisplayName || 'Usuário Desconhecido',
+            isVerified: authorData.isVerified || false,
+            avatar: authorData.avatar?.data ? {
+                url: authorData.avatar.data.attributes?.url
+            } : authorData.avatar,
+            createdAt: authorData.createdAt,
+            updatedAt: authorData.updatedAt
+        };
+    }
+
+    // CORREÇÃO: Imagens com estrutura correta
+    const imagesData = attributes.images?.data || attributes.images;
+    let images = [];
+
+    if (Array.isArray(imagesData)) {
+        images = imagesData.map((img: any) => ({
+            url: img.attributes?.url || img.url || ''
+        }));
+    } else if (imagesData && typeof imagesData === 'object') {
+        images = [{
+            url: imagesData.attributes?.url || imagesData.url || ''
+        }];
+    }
+
+    // CORREÇÃO: Vídeo com estrutura correta
+    const videoData = attributes.video?.data || attributes.video;
+    const video = videoData ? {
+        url: videoData.attributes?.url || videoData.url || ''
+    } : null;
+
+    const post = {
+        id: rawPost.id,
+        content: attributes.content || '',
+        likes: parseInt(attributes.likes) || 0,
+        shares: parseInt(attributes.shares) || 0,
+        isPublic: attributes.isPublic ?? true,
+        tags: attributes.tags,
+        location: attributes.location,
+        publishedDate: attributes.publishedDate || attributes.createdAt,
+        createdAt: attributes.createdAt,
+        updatedAt: attributes.updatedAt,
+        author: author,
+        images: images,
+        video: video
+    };
+
+    console.log('✅ Post transformado (COM AUTOR):', {
         id: post.id,
         content: post.content.substring(0, 50) + '...',
-        hasImages: !!post.images?.data?.length,
-        imageCount: post.images?.data?.length || 0,
-        hasVideo: !!post.video?.data,
-        author: post.author.DisplayName
+        author: post.author.DisplayName,
+        authorAvatar: post.author.avatar?.url ? 'SIM' : 'NÃO',
+        hasImages: post.images.length > 0,
+        imageCount: post.images.length,
+        hasVideo: !!post.video
     });
 
     return post;
@@ -419,19 +453,35 @@ const FeedPage = () => {
             try {
                 setIsLoading(true);
 
-                console.log('🚀 Buscando posts com Strapi v5...');
-                const response = await postsAPI.getPosts();
+                console.log('🚀 Buscando posts com autor populado...');
+
+                // CORREÇÃO: Adicionar populate=author e populate=author.avatar
+                const response = await fetch(
+                    `${STRAPI_URL}/api/posts?populate=author&populate=author.avatar&populate=images&populate=video&sort=createdAt:desc`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    }
+                );
+
                 console.log('📦 Resposta completa:', response);
 
-                if (!response.data || !Array.isArray(response.data)) {
-                    console.error('❌ Resposta da API inválida:', response);
+                if (!response.ok) {
+                    throw new Error('Erro ao buscar posts');
+                }
+
+                const data = await response.json();
+
+                if (!data.data || !Array.isArray(data.data)) {
+                    console.error('❌ Resposta da API inválida:', data);
                     setError('Dados inválidos recebidos da API.');
                     return;
                 }
 
-                console.log('📊 Total de posts recebidos:', response.data.length);
+                console.log('📊 Total de posts recebidos:', data.data.length);
 
-                const formattedPosts = response.data
+                const formattedPosts = data.data
                     .map(transformPostData)
                     .filter(post => post !== null);
 
@@ -458,8 +508,41 @@ const FeedPage = () => {
         ));
 
         try {
-            await postsAPI.likePost(postId);
+            // Buscar o post pelo ID para obter o documentId
+            const postResponse = await fetch(
+                `${STRAPI_URL}/api/posts?filters[id][$eq]=${postId}`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                }
+            );
+
+            if (!postResponse.ok) throw new Error('Erro ao buscar post');
+
+            const postData = await postResponse.json();
+            if (postData.data.length === 0) throw new Error('Post não encontrado');
+
+            const postDocumentId = postData.data[0].documentId;
+            const currentLikes = parseInt(postData.data[0].attributes?.likes) || 0;
+
+            // Atualizar likes no backend
+            await fetch(`${STRAPI_URL}/api/posts/${postDocumentId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                    data: {
+                        likes: currentLikes + 1
+                    }
+                })
+            });
+
         } catch (err) {
+            console.error('❌ Erro ao curtir post:', err);
+            // Reverter em caso de erro
             setPosts(originalPosts);
             alert('Não foi possível curtir o post.');
         }
@@ -536,7 +619,7 @@ const FeedPage = () => {
                         transform: translateY(0);
                     }
                 }
-                
+
                 .animate-fade-in-up {
                     animation: fade-in-up 0.5s ease-out forwards;
                 }

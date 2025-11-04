@@ -3,11 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { User, Image as ImageIcon, Globe, Calendar, LinkIcon, MapPin, CheckCircle } from 'lucide-react';
+import { STRAPI_URL } from '@/lib/api';
+import { User, Image as ImageIcon, MapPin, Calendar, LinkIcon, CheckCircle } from 'lucide-react';
 
 const CreateProfilePage = () => {
     const router = useRouter();
-    const { user } = useAuth(); // Assume que o user está disponível no contexto de autenticação
+    const { user } = useAuth();
     const [loading, setLoading] = useState(false);
     const [previewAvatar, setPreviewAvatar] = useState(null);
     const [previewCover, setPreviewCover] = useState(null);
@@ -21,7 +22,6 @@ const CreateProfilePage = () => {
         location: '',
         website: '',
         dateOfBirth: '',
-        isVerified: false,
     });
 
     useEffect(() => {
@@ -49,45 +49,78 @@ const CreateProfilePage = () => {
         }
     };
 
+    const uploadMedia = async (file) => {
+        const formData = new FormData();
+        formData.append('files', file);
+
+        const response = await fetch(`${STRAPI_URL}/api/upload`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error('Erro ao fazer upload da mídia');
+        }
+
+        const data = await response.json();
+        return data[0].id;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setErrors({});
 
         try {
-            const formData = new FormData();
-            formData.append('data', JSON.stringify({
-                displayName: profileData.displayName,
-                bio: profileData.bio,
-                location: profileData.location,
-                website: profileData.website,
-                dateOfBirth: profileData.dateOfBirth,
-                isVerified: false,
-                user: user.id // Assumindo que o ID do usuário está no objeto 'user'
-            }));
+            let avatarId = null;
+            let coverImageId = null;
 
-            // Adiciona arquivos ao FormData se existirem
+            // Upload do avatar se existir
             if (profileData.avatar) {
-                formData.append('files.avatar', profileData.avatar, profileData.avatar.name);
-            }
-            if (profileData.coverImage) {
-                formData.append('files.coverImage', profileData.coverImage, profileData.coverImage.name);
+                avatarId = await uploadMedia(profileData.avatar);
             }
 
-            // Realiza o POST para a sua API
-            const response = await fetch('/api/profiles', {
+            // Upload da imagem de capa se existir
+            if (profileData.coverImage) {
+                coverImageId = await uploadMedia(profileData.coverImage);
+            }
+
+            // Cria o perfil no Strapi
+            const profilePayload = {
+                data: {
+                    DisplayName: profileData.displayName,
+                    Bio: profileData.bio,
+                    Location: profileData.location,
+                    Website: profileData.website,
+                    DateOfBirth: profileData.dateOfBirth,
+                    IsVerified: false,
+                    user: user.id,
+                    ...(avatarId && { avatar: avatarId }),
+                    ...(coverImageId && { coverImage: coverImageId })
+                }
+            };
+
+            const response = await fetch(`${STRAPI_URL}/api/profiles`, {
                 method: 'POST',
-                body: formData,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify(profilePayload)
             });
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.message || 'Falha ao criar o perfil.');
+                throw new Error(errorData.error?.message || 'Falha ao criar o perfil.');
             }
 
-            console.log('Perfil criado com sucesso!');
+            console.log('✅ Perfil criado com sucesso!');
             router.push('/feed');
         } catch (error) {
+            console.error('❌ Erro ao criar perfil:', error);
             setErrors({ general: error.message || 'Erro ao criar o perfil.' });
         } finally {
             setLoading(false);

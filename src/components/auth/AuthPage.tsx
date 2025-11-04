@@ -104,9 +104,10 @@ const AuthPage = () => {
     };
 
     // Componente de Input Moderno
+    // Componente de Input Moderno (CORRIGIDO)
     const InputField = ({ icon: Icon, type = 'text', value, onChange, placeholder, error, ...props }) => (
         <div className="mb-4">
-            <div className={`relative group ${error ? 'animate-shake' : ''}`}>
+            <div className="relative group">
                 <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 transition-colors group-focus-within:text-purple-500" />
                 <input
                     type={type}
