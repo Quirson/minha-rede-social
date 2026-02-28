@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800;900&family=JetBrains+Mono:wght@300;400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 1280px;
+    height: 640px;
+    overflow: hidden;
+    background: #060612;
+    font-family: 'Syne', sans-serif;
+    position: relative;
+  }
+
+  /* === BACKGROUND === */
+  .grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  .blob-tl {
+    position: absolute;
+    width: 700px; height: 700px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(99,102,241,0.14) 0%, rgba(139,92,246,0.08) 40%, transparent 65%);
+    top: -300px; left: -150px;
+  }
+  .blob-br {
+    position: absolute;
+    width: 600px; height: 600px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(236,72,153,0.1) 0%, transparent 60%);
+    bottom: -250px; right: -100px;
+  }
+  .blob-mid {
+    position: absolute;
+    width: 400px; height: 400px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 65%);
+    top: 50%; right: 370px;
+    transform: translateY(-50%);
+  }
+
+  .scanlines {
+    position: absolute; inset: 0; z-index: 30;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 3px,
+      rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+  }
+
+  /* === BORDERS === */
+  .top-bar {
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(to right, transparent, #6366f1 25%, #a855f7 50%, #ec4899 75%, transparent);
+  }
+  .bottom-bar {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(to right, transparent, rgba(99,102,241,0.4) 40%, rgba(236,72,153,0.4) 60%, transparent);
+  }
+
+  .brk { position: absolute; width: 28px; height: 28px; border-style: solid; }
+  .brk.tl { top: 18px; left: 18px; border-width: 2px 0 0 2px; border-color: rgba(99,102,241,0.6); }
+  .brk.tr { top: 18px; right: 18px; border-width: 2px 2px 0 0; border-color: rgba(236,72,153,0.5); }
+  .brk.bl { bottom: 18px; left: 18px; border-width: 0 0 2px 2px; border-color: rgba(99,102,241,0.4); }
+  .brk.br { bottom: 18px; right: 18px; border-width: 0 2px 2px 0; border-color: rgba(168,85,247,0.5); }
+
+  /* === LEFT === */
+  .left {
+    position: absolute;
+    left: 88px; top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+  }
+
+  .tag-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 20px;
+  }
+  .tag-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.2), 0 0 16px rgba(99,102,241,0.6);
+    animation: blink 2s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .tag-txt {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 4px; text-transform: uppercase;
+    color: rgba(99,102,241,0.8);
+  }
+
+  /* LOGO / NAME */
+  .logo-wrap {
+    display: flex; align-items: flex-end; gap: 0;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .logo-social {
+    font-size: 96px; font-weight: 900;
+    color: #ffffff;
+    letter-spacing: -4px;
+    text-shadow: 0 0 40px rgba(99,102,241,0.2);
+  }
+  .logo-deal {
+    font-size: 96px; font-weight: 900;
+    letter-spacing: -4px;
+    background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 30px rgba(99,102,241,0.4));
+  }
+
+  .tagline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; letter-spacing: 1px;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 28px;
+  }
+  .tagline span { color: rgba(99,102,241,0.7); }
+
+  /* Feature badges */
+  .features { display: flex; flex-wrap: wrap; gap: 8px; max-width: 520px; }
+  .feat {
+    padding: 6px 13px; border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    border: 1px solid;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .feat.ind  { color: #818cf8; border-color: rgba(129,140,248,0.3); background: rgba(99,102,241,0.08); }
+  .feat.pink { color: #f472b6; border-color: rgba(244,114,182,0.3); background: rgba(236,72,153,0.08); }
+  .feat.purp { color: #c084fc; border-color: rgba(192,132,252,0.3); background: rgba(168,85,247,0.08); }
+  .feat.blue { color: #60a5fa; border-color: rgba(96,165,250,0.3); background: rgba(59,130,246,0.08); }
+
+  /* Stack row */
+  .stack-row {
+    margin-top: 20px;
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap;
+  }
+  .stack-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 3px; text-transform: uppercase;
+    color: rgba(255,255,255,0.2); margin-right: 4px;
+  }
+  .stk {
+    padding: 3px 10px; border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.45);
+  }
+
+  /* === RIGHT PANEL — FAKE APP MOCKUP === */
+  .right {
+    position: absolute;
+    right: 68px; top: 50%;
+    transform: translateY(-50%);
+    width: 280px;
+    z-index: 10;
+  }
+
+  .phone-wrap {
+    position: relative;
+  }
+
+  /* Phone frame */
+  .phone {
+    width: 220px; height: 380px;
+    border-radius: 28px;
+    background: #0d0d1a;
+    border: 1.5px solid rgba(99,102,241,0.3);
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.5),
+      0 0 60px rgba(99,102,241,0.2),
+      0 0 120px rgba(99,102,241,0.08),
+      inset 0 0 30px rgba(0,0,0,0.5);
+    overflow: hidden;
+    margin: 0 auto;
+  }
+
+  /* Phone top notch */
+  .notch {
+    width: 60px; height: 12px;
+    background: #0d0d1a;
+    border: 1.5px solid rgba(99,102,241,0.2);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    margin: 0 auto;
+    position: relative; z-index: 2;
+  }
+
+  /* App UI inside phone */
+  .app-header {
+    padding: 8px 12px 6px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .app-logo-txt {
+    font-size: 11px; font-weight: 900; letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #6366f1, #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .app-icons { display: flex; gap: 6px; }
+  .app-icon { width: 14px; height: 14px; border-radius: 50%; background: rgba(255,255,255,0.1); }
+
+  /* Stories row */
+  .stories {
+    display: flex; gap: 6px; padding: 8px 10px;
+    overflow: hidden;
+  }
+  .story-av {
+    flex-shrink: 0;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: conic-gradient(#6366f1, #a855f7, #ec4899, #6366f1);
+    padding: 2px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .story-inner {
+    width: 100%; height: 100%; border-radius: 50%;
+    background: #111122;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+
+  /* Post card */
+  .post-card {
+    margin: 4px 8px;
+    background: rgba(99,102,241,0.05);
+    border: 1px solid rgba(99,102,241,0.12);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .post-user {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 8px;
+  }
+  .post-av {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #ec4899);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+  }
+  .post-name {
+    font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.7);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .post-time {
+    font-size: 8px; color: rgba(255,255,255,0.25);
+    font-family: 'JetBrains Mono', monospace;
+    margin-left: auto;
+  }
+  .post-img {
+    width: 100%; height: 80px;
+    background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(236,72,153,0.15));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+  }
+  .post-actions {
+    display: flex; gap: 10px; padding: 6px 8px;
+  }
+  .action {
+    font-size: 8px; color: rgba(255,255,255,0.3);
+    font-family: 'JetBrains Mono', monospace;
+    display: flex; align-items: center; gap: 3px;
+  }
+  .action.liked { color: #f472b6; }
+
+  /* Second mini post */
+  .post-card2 {
+    margin: 4px 8px;
+    background: rgba(168,85,247,0.04);
+    border: 1px solid rgba(168,85,247,0.1);
+    border-radius: 10px;
+    padding: 8px;
+  }
+  .post-txt {
+    font-size: 8px; color: rgba(255,255,255,0.4);
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.5;
+  }
+
+  /* Bottom nav */
+  .bottom-nav {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 44px;
+    background: rgba(6,6,18,0.95);
+    border-top: 1px solid rgba(99,102,241,0.1);
+    display: flex; align-items: center; justify-content: space-around;
+    padding: 0 8px;
+  }
+  .nav-icon { font-size: 14px; opacity: 0.4; }
+  .nav-icon.active { opacity: 1; filter: drop-shadow(0 0 4px rgba(99,102,241,0.8)); }
+
+  /* Floating notification */
+  .notif {
+    position: absolute;
+    top: -14px; right: -14px;
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    border-radius: 10px;
+    padding: 5px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; font-weight: 700;
+    color: white;
+    box-shadow: 0 0 20px rgba(99,102,241,0.5);
+    white-space: nowrap;
+  }
+
+  /* Glow behind phone */
+  .phone-glow {
+    position: absolute;
+    width: 280px; height: 280px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 65%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: -1;
+  }
+
+  /* Author / watermark */
+  .author {
+    position: absolute; bottom: 20px; left: 88px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 2px;
+    color: rgba(255,255,255,0.12);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .author::before { content:''; display:block; width:16px; height:1px; background:rgba(99,102,241,0.3); }
+
+  .watermark {
+    position: absolute; bottom: 20px; right: 80px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 2px;
+    color: rgba(255,255,255,0.1);
+  }
+</style>
+</head>
+<body>
+
+  <div class="grid"></div>
+  <div class="blob-tl"></div>
+  <div class="blob-br"></div>
+  <div class="blob-mid"></div>
+  <div class="scanlines"></div>
+  <div class="top-bar"></div>
+  <div class="bottom-bar"></div>
+  <div class="brk tl"></div>
+  <div class="brk tr"></div>
+  <div class="brk bl"></div>
+  <div class="brk br"></div>
+
+  <!-- LEFT -->
+  <div class="left">
+    <div class="tag-row">
+      <div class="tag-dot"></div>
+      <span class="tag-txt">Full-Stack · Web App · ISCTEM · 2024</span>
+    </div>
+
+    <div class="logo-wrap">
+      <span class="logo-social">Social</span><span class="logo-deal">Deal</span>
+    </div>
+
+    <p class="tagline">A rede social completa — <span>construída do zero</span></p>
+
+    <div class="features">
+      <span class="feat ind">📰 Feed & Posts</span>
+      <span class="feat pink">❤️ Likes & Comentários</span>
+      <span class="feat purp">👤 Perfis</span>
+      <span class="feat blue">💬 Chat em Tempo Real</span>
+      <span class="feat ind">➕ Follows</span>
+      <span class="feat pink">🔐 NextAuth</span>
+    </div>
+
+    <div class="stack-row">
+      <span class="stack-label">stack</span>
+      <span class="stk">Next.js</span>
+      <span class="stk">TypeScript</span>
+      <span class="stk">Tailwind</span>
+      <span class="stk">PostgreSQL</span>
+      <span class="stk">NextAuth</span>
+    </div>
+  </div>
+
+  <!-- RIGHT — PHONE MOCKUP -->
+  <div class="right">
+    <div class="phone-wrap">
+      <div class="phone-glow"></div>
+      <div class="notif">✨ 3 novas notificações</div>
+      <div class="phone">
+        <div class="notch"></div>
+
+        <!-- App Header -->
+        <div class="app-header">
+          <span class="app-logo-txt">SocialDeal</span>
+          <div class="app-icons">
+            <div class="app-icon"></div>
+            <div class="app-icon" style="background:rgba(99,102,241,0.4)"></div>
+          </div>
+        </div>
+
+        <!-- Stories -->
+        <div class="stories">
+          <div class="story-av"><div class="story-inner">😎</div></div>
+          <div class="story-av" style="background: conic-gradient(#a855f7,#ec4899,#a855f7)"><div class="story-inner">🧑‍💻</div></div>
+          <div class="story-av" style="background: conic-gradient(#3b82f6,#6366f1,#3b82f6)"><div class="story-inner">👩</div></div>
+          <div class="story-av" style="background: conic-gradient(#ec4899,#f59e0b,#ec4899)"><div class="story-inner">🎮</div></div>
+        </div>
+
+        <!-- Post 1 -->
+        <div class="post-card">
+          <div class="post-user">
+            <div class="post-av">Q</div>
+            <div>
+              <div class="post-name">@quirson</div>
+            </div>
+            <span class="post-time">2m ago</span>
+          </div>
+          <div class="post-img">🌍</div>
+          <div class="post-actions">
+            <span class="action liked">❤️ 42</span>
+            <span class="action">💬 8</span>
+            <span class="action">↗️ share</span>
+          </div>
+        </div>
+
+        <!-- Post 2 -->
+        <div class="post-card2">
+          <div class="post-user" style="padding:0 0 5px">
+            <div class="post-av" style="background:linear-gradient(135deg,#a855f7,#3b82f6)">M</div>
+            <div><div class="post-name">@maputo_dev</div></div>
+            <span class="post-time">5m</span>
+          </div>
+          <div class="post-txt">Acabei de criar o meu perfil! Social Deal é incrível 🚀</div>
+        </div>
+
+        <!-- Bottom Nav -->
+        <div class="bottom-nav">
+          <span class="nav-icon active">🏠</span>
+          <span class="nav-icon">🔍</span>
+          <span class="nav-icon">➕</span>
+          <span class="nav-icon">💬</span>
+          <span class="nav-icon">👤</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="author">Quirson Fernando Ngale · ISCTEM · 2024</div>
+  <div class="watermark">github.com/Quirson</div>
+
+</body>
+</html>
